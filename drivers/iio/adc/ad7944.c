@@ -448,7 +448,7 @@ static int ad7944_write_raw(struct iio_dev *indio_dev,
 		state.duty_cycle = AD7944_PWM_TRIGGER_DUTY_CYCLE_NS;
 		state.enabled = true;
 
-		return pwm_apply_state(adc->pwm, &state);
+		return pwm_apply_might_sleep(adc->pwm, &state);
 	}
 	default:
 		return -EINVAL;
@@ -735,7 +735,7 @@ static int ad7944_probe(struct spi_device *spi)
 			return dev_err_probe(dev, PTR_ERR(adc->pwm),
 					     "failed to get PWM\n");
 
-		ret = pwm_apply_state(adc->pwm, &state);
+		ret = pwm_apply_might_sleep(adc->pwm, &state);
 		if (ret)
 			return dev_err_probe(dev, ret,
 					     "failed to apply PWM state\n");
