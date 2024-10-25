@@ -88,6 +88,7 @@ struct pwm_waveform {
 struct pwm_state {
 	u64 period;
 	u64 duty_cycle;
+	u64 phase;
 	enum pwm_polarity polarity;
 	bool enabled;
 	bool usage_power;
