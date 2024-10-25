@@ -207,7 +207,7 @@ static int __ad400x_set_sampling_freq(struct ad400x_state *st, int freq)
 	struct pwm_state cnv_state;
 	u32 rem;
 
-	/* Sync up PWM state and prepare for pwm_apply_state(). */
+	/* Sync up PWM state and prepare for pwm_apply_might_sleep(). */
 	pwm_init_state(st->cnv_trigger, &cnv_state);
 
 	/*
@@ -215,7 +215,7 @@ static int __ad400x_set_sampling_freq(struct ad400x_state *st, int freq)
 	 * less than 1 / freq (with freq measured in Hz). It should not be less
 	 * because freq is usually st->chip->max_rate which is a hard limit.
 	 *
-	 * When a period P (measured in ns) is passed to pwm_apply_state(), the
+	 * When a period P (measured in ns) is passed to pwm_apply_might_sleep(), the
 	 * actually implemented period is:
 	 *
 	 * 	round_down(P * R / NSEC_PER_SEC) / R
@@ -239,7 +239,7 @@ static int __ad400x_set_sampling_freq(struct ad400x_state *st, int freq)
 
 	cnv_state.duty_cycle = DIV_ROUND_UP(NSEC_PER_SEC, st->ref_clk_rate);
 
-	return pwm_apply_state(st->cnv_trigger, &cnv_state);
+	return pwm_apply_might_sleep(st->cnv_trigger, &cnv_state);
 }
 
 static int ad400x_set_sampling_freq(struct iio_dev *indio_dev, unsigned int freq)

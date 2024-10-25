@@ -382,7 +382,7 @@ static int __ad4630_set_sampling_freq(const struct ad4630_state *st, unsigned in
 	int ret;
 
 	conv_state.period = DIV_ROUND_CLOSEST(NSEC_PER_SEC, freq);
-	ret = pwm_apply_state(st->conv_trigger, &conv_state);
+	ret = pwm_apply_might_sleep(st->conv_trigger, &conv_state);
 	if (ret)
 		return ret;
 
@@ -409,7 +409,7 @@ static int __ad4630_set_sampling_freq(const struct ad4630_state *st, unsigned in
 	 */
 	fetch_state.phase = AD4630_TQUIET_CNV_DELAY_PS;
 
-	return pwm_apply_state(st->fetch_trigger, &fetch_state);
+	return pwm_apply_might_sleep(st->fetch_trigger, &fetch_state);
 }
 
 static int ad4630_set_sampling_freq(struct iio_dev *indio_dev, unsigned int freq)
@@ -602,7 +602,7 @@ static int ad4630_update_sample_fetch_trigger(const struct ad4630_state *st, u32
 	fetch_state.period = conv_state.period * 1 << avg;
 	fetch_state.phase = AD4630_TQUIET_CNV_DELAY_PS;
 
-	return pwm_apply_state(st->fetch_trigger, &fetch_state);
+	return pwm_apply_might_sleep(st->fetch_trigger, &fetch_state);
 }
 
 static int ad4630_set_avg_frame_len(struct iio_dev *dev,
@@ -654,7 +654,7 @@ static int ad4630_sampling_enable(const struct ad4630_state *st, bool enable)
 	pwm_get_state(st->conv_trigger, &conv_state);
 	conv_state.enabled = enable;
 
-	ret = pwm_apply_state(st->conv_trigger, &conv_state);
+	ret = pwm_apply_might_sleep(st->conv_trigger, &conv_state);
 	if (ret)
 		return ret;
 	if (!st->fetch_trigger)
@@ -662,7 +662,7 @@ static int ad4630_sampling_enable(const struct ad4630_state *st, bool enable)
 
 	pwm_get_state(st->fetch_trigger, &fetch_state);
 	fetch_state.enabled = enable;
-	return pwm_apply_state(st->fetch_trigger, &fetch_state);
+	return pwm_apply_might_sleep(st->fetch_trigger, &fetch_state);
 }
 
 static int ad4630_spi_transfer_update(struct ad4630_state *st)

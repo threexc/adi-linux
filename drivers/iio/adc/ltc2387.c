@@ -169,7 +169,7 @@ static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
 	 * The goal here is that the PWM is configured with a minimal period not
 	 * less than 1 / freq (with freq measured in Hz).
 	 *
-	 * When a period P (measured in ns) is passed to pwm_apply_state(), the
+	 * When a period P (measured in ns) is passed to pwm_apply_might_sleep(), the
 	 * actually implemented period is:
 	 *
 	 *      round_down(P * R / NSEC_PER_SEC) / R
@@ -191,7 +191,7 @@ static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
 	if (rem)
 		cnv_state.period += 1;
 
-	ret = pwm_apply_state(ltc->cnv, &cnv_state);
+	ret = pwm_apply_might_sleep(ltc->cnv, &cnv_state);
 	if (ret < 0)
 		return ret;
 
@@ -208,7 +208,7 @@ static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
 		.enabled = true,
 	};
 
-	ret = pwm_apply_state(ltc->clk_en, &clk_en_state);
+	ret = pwm_apply_might_sleep(ltc->clk_en, &clk_en_state);
 	if (ret < 0)
 		return ret;
 

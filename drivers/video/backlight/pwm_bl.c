@@ -53,7 +53,7 @@ static void pwm_backlight_power_on(struct pwm_bl_data *pb)
 		dev_err(pb->dev, "failed to enable power supply\n");
 
 	state.enabled = true;
-	pwm_apply_state(pb->pwm, &state);
+	pwm_apply_might_sleep(pb->pwm, &state);
 
 	if (pb->post_pwm_on_delay)
 		msleep(pb->post_pwm_on_delay);
@@ -80,7 +80,7 @@ static void pwm_backlight_power_off(struct pwm_bl_data *pb)
 
 	state.enabled = false;
 	state.duty_cycle = 0;
-	pwm_apply_state(pb->pwm, &state);
+	pwm_apply_might_sleep(pb->pwm, &state);
 
 	regulator_disable(pb->power_supply);
 	pb->enabled = false;
@@ -117,7 +117,7 @@ static int pwm_backlight_update_status(struct backlight_device *bl)
 	if (brightness > 0) {
 		pwm_get_state(pb->pwm, &state);
 		state.duty_cycle = compute_duty_cycle(pb, brightness);
-		pwm_apply_state(pb->pwm, &state);
+		pwm_apply_might_sleep(pb->pwm, &state);
 		pwm_backlight_power_on(pb);
 	} else {
 		pwm_backlight_power_off(pb);
@@ -533,7 +533,7 @@ static int pwm_backlight_probe(struct platform_device *pdev)
 	if (!state.period && (data->pwm_period_ns > 0))
 		state.period = data->pwm_period_ns;
 
-	ret = pwm_apply_state(pb->pwm, &state);
+	ret = pwm_apply_might_sleep(pb->pwm, &state);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to apply initial PWM state: %d\n",
 			ret);

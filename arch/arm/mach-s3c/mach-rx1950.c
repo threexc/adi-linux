@@ -443,14 +443,14 @@ static void rx1950_lcd_power(int enable)
 		gpio_direction_output(S3C2410_GPB(1), 0);
 
 		lcd_pwm_state.enabled = false;
-		pwm_apply_state(lcd_pwm, &lcd_pwm_state);
+		pwm_apply_might_sleep(lcd_pwm, &lcd_pwm_state);
 
 		/* GPC0->0, GPC10->0 */
 		gpio_direction_output(S3C2410_GPC(0), 0);
 		gpio_direction_output(S3C2410_GPC(10), 0);
 	} else {
 		lcd_pwm_state.enabled = true;
-		pwm_apply_state(lcd_pwm, &lcd_pwm_state);
+		pwm_apply_might_sleep(lcd_pwm, &lcd_pwm_state);
 
 		gpio_direction_output(S3C2410_GPC(0), 1);
 		gpio_direction_output(S3C2410_GPC(5), 1);

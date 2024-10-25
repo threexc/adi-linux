@@ -433,7 +433,7 @@ static int ad_pulsar_set_samp_freq(struct ad_pulsar_adc *adc, int freq)
 	 * more than $freq periods per second and duty_cycle and phase should be
 	 * their minimal positive value.
 	 *
-	 * When a period P (measured in ns) is passed to pwm_apply_state(), the
+	 * When a period P (measured in ns) is passed to pwm_apply_might_sleep(), the
 	 * actually implemented period is:
 	 *
 	 * 	round_down(P * R / NSEC_PER_SEC) / R
@@ -459,7 +459,7 @@ static int ad_pulsar_set_samp_freq(struct ad_pulsar_adc *adc, int freq)
 	if (rem)
 		cnv_state.period += 1;
 
-	ret = pwm_apply_state(adc->cnv, &cnv_state);
+	ret = pwm_apply_might_sleep(adc->cnv, &cnv_state);
 	if (ret)
 		return ret;
 

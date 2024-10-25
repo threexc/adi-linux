@@ -445,7 +445,7 @@ static ssize_t ad7944_sampling_frequency_store(struct device *dev,
 	sample_state.duty_cycle = AD7944_PWM_TRIGGER_DUTY_CYCLE_NS;
 	sample_state.enabled = true;
 
-	ret = pwm_apply_state(adc->pwm, &sample_state);
+	ret = pwm_apply_might_sleep(adc->pwm, &sample_state);
 	if (ret)
 		return ret;
 
@@ -745,7 +745,7 @@ static int ad7944_probe(struct spi_device *spi)
 			return dev_err_probe(dev, PTR_ERR(adc->pwm),
 					     "failed to get PWM\n");
 
-		ret = pwm_apply_state(adc->pwm, &state);
+		ret = pwm_apply_might_sleep(adc->pwm, &state);
 		if (ret)
 			return dev_err_probe(dev, ret,
 					     "failed to apply PWM state\n");
