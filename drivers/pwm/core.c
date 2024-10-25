@@ -1093,7 +1093,7 @@ static ssize_t phase_show(struct device *child,
 			  struct device_attribute *attr,
 			  char *buf)
 {
-	const struct pwm_device *pwm = child_to_pwm_device(child);
+	const struct pwm_device *pwm = pwm_from_dev(child);
 	struct pwm_state state;
 
 	pwm_get_state(pwm, &state);
@@ -1105,7 +1105,7 @@ static ssize_t phase_store(struct device *child,
 			   struct device_attribute *attr,
 			   const char *buf, size_t size)
 {
-	struct pwm_export *export = child_to_pwm_export(child);
+	struct pwm_export *export = pwmexport_from_dev(child);
 	struct pwm_device *pwm = export->pwm;
 	struct pwm_state state;
 	u64 val;
