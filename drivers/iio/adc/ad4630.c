@@ -192,6 +192,8 @@ struct ad4630_state {
 	struct regulator_bulk_data regulators[3];
 	struct pwm_device *conv_trigger;
 	struct pwm_device *fetch_trigger;
+	struct pwm_waveform conv_wf;
+	struct pwm_waveform fetch_wf;
 	struct gpio_descs *pga_gpios;
 	struct spi_device *spi;
 	struct regmap *regmap;
@@ -258,10 +260,10 @@ static int ad4630_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 
 static void ad4630_get_sampling_freq(const struct ad4630_state *st, int *freq)
 {
-	struct pwm_state conversion_state;
+	struct pwm_waveform conversion_wf;
 
-	pwm_get_state(st->conv_trigger, &conversion_state);
-	*freq = DIV_ROUND_CLOSEST_ULL(NANO, conversion_state.period);
+	pwm_get_waveform_might_sleep(st->conv_trigger, &conversion_wf);
+	*freq = DIV_ROUND_CLOSEST_ULL(NANO, conversion_wf.period_length_ns);
 }
 
 static int ad4630_get_chan_gain(struct iio_dev *indio_dev, int ch, int *val)
@@ -370,26 +372,24 @@ static int ad4630_read_avail(struct iio_dev *indio_dev,
 	}
 }
 
-static int __ad4630_set_sampling_freq(const struct ad4630_state *st, unsigned int freq)
+static int __ad4630_set_sampling_freq(struct ad4630_state *st, unsigned int freq)
 {
-	struct pwm_state conv_state = {
-		.duty_cycle = 10,
-		.enabled = true,
-	}, fetch_state = {
-		.duty_cycle = 10,
-		.enabled = true,
+	struct pwm_waveform conv_wf = {
+		.duty_length_ns = 10,
+	}, fetch_wf = {
+		.duty_length_ns = 10,
 	};
 	int ret;
 
-	conv_state.period = DIV_ROUND_CLOSEST(NSEC_PER_SEC, freq);
-	ret = pwm_apply_might_sleep(st->conv_trigger, &conv_state);
+	conv_wf.period_length_ns = DIV_ROUND_CLOSEST(NSEC_PER_SEC, freq);
+	ret = pwm_round_waveform_might_sleep(st->conv_trigger, &conv_wf);
 	if (ret)
 		return ret;
 
 	if (!st->fetch_trigger)
 		return 0;
 
-	fetch_state.period = conv_state.period;
+	fetch_wf.period_length_ns = conv_wf.period_length_ns;
 
 	if (st->out_data == AD4630_30_AVERAGED_DIFF) {
 		u32 avg;
@@ -398,7 +398,7 @@ static int __ad4630_set_sampling_freq(const struct ad4630_state *st, unsigned in
 		if (ret)
 			return ret;
 
-		fetch_state.period <<= FIELD_GET(AD4630_AVG_AVG_VAL, avg);
+		fetch_wf.period_length_ns <<= FIELD_GET(AD4630_AVG_AVG_VAL, avg);
 	}
 
 	/*
@@ -407,14 +407,19 @@ static int __ad4630_set_sampling_freq(const struct ad4630_state *st, unsigned in
 	 * tsync + tquiet_con_delay being tsync the conversion signal period
 	 * and tquiet_con_delay 9.8ns. Hence set the PWM phase accordingly.
 	 */
-	fetch_state.phase = AD4630_TQUIET_CNV_DELAY_PS;
+	fetch_wf.duty_offset_ns = AD4630_TQUIET_CNV_DELAY_PS;
+	
+	ret = pwm_round_waveform_might_sleep(st->fetch_trigger, &fetch_wf);
 
-	return pwm_apply_might_sleep(st->fetch_trigger, &fetch_state);
+	st->conv_wf = conv_wf;
+	st->fetch_wf = fetch_wf;
+
+	return 0;
 }
 
 static int ad4630_set_sampling_freq(struct iio_dev *indio_dev, unsigned int freq)
 {
-	const struct ad4630_state *st = iio_priv(indio_dev);
+	struct ad4630_state *st = iio_priv(indio_dev);
 	int ret;
 
 	if (!freq || freq > st->max_rate)
@@ -592,17 +597,17 @@ static int ad4630_write_raw(struct iio_dev *indio_dev,
 
 static int ad4630_update_sample_fetch_trigger(const struct ad4630_state *st, u32 avg)
 {
-	struct pwm_state fetch_state, conv_state;
+	struct pwm_waveform fetch_wf = { }, conv_wf = { };
 
 	if (!st->fetch_trigger)
 		return 0;
 
-	pwm_get_state(st->conv_trigger, &conv_state);
-	pwm_get_state(st->fetch_trigger, &fetch_state);
-	fetch_state.period = conv_state.period * 1 << avg;
-	fetch_state.phase = AD4630_TQUIET_CNV_DELAY_PS;
+	pwm_get_waveform_might_sleep(st->conv_trigger, &conv_wf);
+	pwm_get_waveform_might_sleep(st->fetch_trigger, &fetch_wf);
+	fetch_wf.period_length_ns = conv_wf.period_length_ns * 1 << avg;
+	fetch_wf.duty_offset_ns = AD4630_TQUIET_CNV_DELAY_PS;
 
-	return pwm_apply_might_sleep(st->fetch_trigger, &fetch_state);
+	return pwm_round_waveform_might_sleep(st->fetch_trigger, &fetch_wf);
 }
 
 static int ad4630_set_avg_frame_len(struct iio_dev *dev,
@@ -648,21 +653,19 @@ static int ad4630_get_avg_frame_len(struct iio_dev *dev,
 
 static int ad4630_sampling_enable(const struct ad4630_state *st, bool enable)
 {
-	struct pwm_state conv_state, fetch_state;
+	struct pwm_waveform conv_wf = { }, fetch_wf = { };
 	int ret;
 
-	pwm_get_state(st->conv_trigger, &conv_state);
-	conv_state.enabled = enable;
+	pwm_get_waveform_might_sleep(st->conv_trigger, &conv_wf);
 
-	ret = pwm_apply_might_sleep(st->conv_trigger, &conv_state);
+	ret = pwm_round_waveform_might_sleep(st->conv_trigger, &conv_wf);
 	if (ret)
 		return ret;
 	if (!st->fetch_trigger)
 		return 0;
 
-	pwm_get_state(st->fetch_trigger, &fetch_state);
-	fetch_state.enabled = enable;
-	return pwm_apply_might_sleep(st->fetch_trigger, &fetch_state);
+	pwm_get_waveform_might_sleep(st->fetch_trigger, &fetch_wf);
+	return pwm_round_waveform_might_sleep(st->fetch_trigger, &fetch_wf);
 }
 
 static int ad4630_spi_transfer_update(struct ad4630_state *st)
@@ -731,6 +734,14 @@ static int ad4630_buffer_preenable(struct iio_dev *indio_dev)
 	spi_engine_ex_offload_enable(st->spi, true);
 	ad4630_sampling_enable(st, true);
 
+	ret = pwm_set_waveform_might_sleep(st->conv_trigger, &st->conv_wf, false);
+	if (ret)
+		return ret;
+
+	ret = pwm_set_waveform_might_sleep(st->fetch_trigger, &st->fetch_wf, false);
+	if (ret)
+		return ret;
+
 	return 0;
 out_error:
 	pm_runtime_mark_last_busy(&st->spi->dev);
@@ -756,6 +767,8 @@ static int ad4630_buffer_postdisable(struct iio_dev *indio_dev)
 out_error:
 	pm_runtime_mark_last_busy(&st->spi->dev);
 	pm_runtime_put_autosuspend(&st->spi->dev);
+	pwm_disable(st->fetch_trigger);
+	pwm_disable(st->conv_trigger);
 	return ret;
 }
 
